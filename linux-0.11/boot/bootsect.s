@@ -3,8 +3,11 @@
 ! 0x3000 is 0x30000 bytes = 196kB, more than enough for current
 ! versions of linux
 !
-! SYSSIZE是要加载的系统模块长度。0x3000共计192KB（3*2^(16)=3*2^(6)*2^(10)=192KB）
+! SYSSIZE是要加载的系统模块长度，单位是节，16字节为1节。
+! 0x3000节共计192KB（3*2^(12)=3*2^(2)*2^(10)=12*2^(10)节=12*16KB=192KB）
+
 SYSSIZE = 0x3000
+
 !
 !	bootsect.s		(C) 1991 Linus Torvalds
 !
@@ -23,19 +26,36 @@ SYSSIZE = 0x3000
 ! read errors will result in a unbreakable loop. Reboot by hand. It
 ! loads pretty fast by getting whole sectors at a time whenever possible.
 
+! .globl用于定义随后的标识符是外部的（全局的）
 .globl begtext, begdata, begbss, endtext, enddata, endbss
+
+! .text用于定义代码段
 .text
 begtext:
+
+! .data用于定义数据段
 .data
 begdata:
+
+! .bss用于定义未初始化数据段（BSS是Block Started by Symbol的简称）
 .bss
 begbss:
 .text
 
+! SETUPLEN，setup程序所占的扇区数目
 SETUPLEN = 4				! nr of setup-sectors
+
+! bootsect的原始地址，该地址由BIOS决定。
+! 0x07c0=7*2^(8)+c*2^(4)=7*2^(8)+12*2^(4)=7*2^(8)+3*4*2^(4)=(28+3)*2^(6)=31*2^(6)，即31KB处。
 BOOTSEG  = 0x07c0			! original address of boot-sector
+
+! 程序将bootsect移动到这里
 INITSEG  = 0x9000			! we move boot here - out of the way
+
+! 首先将setup程序加载到的地址
 SETUPSEG = 0x9020			! setup starts here
+
+! 然后将setup程序转移到SYSSEG处
 SYSSEG   = 0x1000			! system loaded at 0x10000 (65536).
 ENDSEG   = SYSSEG + SYSSIZE		! where to stop loading
 
