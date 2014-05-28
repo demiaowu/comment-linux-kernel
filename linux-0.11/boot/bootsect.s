@@ -3,6 +3,7 @@
 ! 0x3000 is 0x30000 bytes = 196kB, more than enough for current
 ! versions of linux
 !
+! SYSSIZE是要加载的系统模块长度。0x3000共计192KB（3*2^(16)=3*2^(6)*2^(10)=192KB）
 SYSSIZE = 0x3000
 !
 !	bootsect.s		(C) 1991 Linus Torvalds
