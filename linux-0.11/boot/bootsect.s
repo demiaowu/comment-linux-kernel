@@ -46,56 +46,68 @@ begbss:
 SETUPLEN = 4				! nr of setup-sectors
 
 ! bootsect的原始地址，该地址由BIOS决定。
-! 0x07c0=7*2^(8)+c*2^(4)=7*2^(8)+12*2^(4)=7*2^(8)+3*4*2^(4)=(28+3)*2^(6)=31*2^(6)，即31KB处。
+! 0x07c0 = 7*2^(8)+c*2^(4) = 7*2^(8)+12*2^(4) = 7*2^(8)+3*4*2^(4) = (28+3)*2^(6) = 31*2^(6)，即31KB处。
 BOOTSEG  = 0x07c0			! original address of boot-sector
 
-! 程序将bootsect移动到这里
+! 程序将bootsect移动到这里。0x9000 = 9*2^(12) = 9*64*2^(6)=576*2^(6)，即576KB处。
 INITSEG  = 0x9000			! we move boot here - out of the way
 
-! 首先将setup程序加载到的地址
+! 首先将setup程序加载到的地址。0x9020=576*2^(6)+2*2^(4)=576*2^(6)+(1/2)2^(6)=576.5*2^(6)，即576.5KB处。
 SETUPSEG = 0x9020			! setup starts here
 
-! 然后将setup程序转移到SYSSEG处
+! 然后将setup程序转移到SYSSEG处。0x1000=2^(12)=2^(6)*2^(6)=64*2^(6)，即64KB处。
 SYSSEG   = 0x1000			! system loaded at 0x10000 (65536).
+
+! 停止加载的段地址。
 ENDSEG   = SYSSEG + SYSSIZE		! where to stop loading
 
 ! ROOT_DEV:	0x000 - same type of floppy as boot.
 !		0x301 - first partition on first drive etc
+! 根文件系统，表示第2个硬盘的第一个分区。设备号=主设备号*256+次设备号
 ROOT_DEV = 0x306
 
+! 告知链接程序，程序从start标号处开始执行。
 entry start
+
+! 移动当前段位置为0x7c0的程序到段位置0x9000处。总共移动512字节。因为本段程序被BIOS读取到段位置为0x7c0处，因此该程序移动自身。
 start:
-	mov	ax,#BOOTSEG
-	mov	ds,ax
+	mov	ax,#BOOTSEG	
+	mov	ds,ax			!将ds段寄存器设置为0x7c0
 	mov	ax,#INITSEG
-	mov	es,ax
-	mov	cx,#256
-	sub	si,si
-	sub	di,di
-	rep
-	movw
-	jmpi	go,INITSEG
-go:	mov	ax,cs
-	mov	ds,ax
-	mov	es,ax
+	mov	es,ax			!将es段寄存器设置为0x9000
+	mov	cx,#256			!设置移动记数值为256字
+	sub	si,si			!设置源地址ds:si=0x7c0:0x0000
+	sub	di,di			!设置目的地址es:di=ox9000:0x0000
+	rep				!重复执行并递减cx的值，直到cx=0
+	movw				!move word，从内存ds:si处移动cx个字（16字节）到es:di处
+	jmpi	go,INITSEG		!Jump intersegment。即跳转到[INITSEG]:[go]处执行。该语句是的程序跳转到新的位置后，接着执行！
+
+! 设置几个段寄存器
+go:	mov	ax,cs			!此时cs=INITSEG=0x9000，CS，Code Segment
+	mov	ds,ax			!设置ds=INITSEG=0x9000，DS，Data Segment
+	mov	es,ax			!设置es=INITSEG=0x9000，ES，Extra Segment
 ! put stack at 0x9ff00.
-	mov	ss,ax
-	mov	sp,#0xFF00		! arbitrary value >>512
+	mov	ss,ax			!设置SS=INITSEG=0x9000，SS，Stack Segment
+	mov	sp,#0xFF00		! arbitrary value >>512，任意大于512的值。SP，Stack Pointer
 
 ! load the setup-sectors directly after the bootblock.
 ! Note that 'es' is already set up.
 
+!读取setup模块。利用BIOS中断int 0x13将setup模块从磁盘的第二个扇区读取到0x90200开始处，共读取4个扇区。
 load_setup:
-	mov	dx,#0x0000		! drive 0, head 0
-	mov	cx,#0x0002		! sector 2, track 0
-	mov	bx,#0x0200		! address = 512, in INITSEG
+	mov	dx,#0x0000		! drive 0, head 0；dh为磁头号（0），dl为驱动器号（0）
+	mov	cx,#0x0002		! sector 2, track 0；表示从第二个扇区开始。
+					! ch为磁道（柱面）号的低8位，cl中0到5位指示开始扇区，6到7位表示磁道号
+	mov	bx,#0x0200		! address = 512, in INITSEG；es:bx指向数据缓冲区。
 	mov	ax,#0x0200+SETUPLEN	! service 2, nr of sectors
-	int	0x13			! read it
-	jnc	ok_load_setup		! ok - continue
+					! ah=0x02，表示读磁盘扇区到内存；al需要读取的扇区数量（4）
+	int	0x13			! read it；读取操作；若出错，则Carry Flag置位，ah中包含出错码
+	jnc	ok_load_setup		! ok - continue；Jump Not Carry
+	
 	mov	dx,#0x0000
 	mov	ax,#0x0000		! reset the diskette
 	int	0x13
-	j	load_setup
+	j	load_setup		!即jmp指令
 
 ok_load_setup:
 
