@@ -149,7 +149,7 @@ ok_load_setup:
 
 ! ok, we've written the message, now
 ! we want to load the system (at 0x10000)
-! //开始加载system模块。
+
 	mov	ax,#SYSSEG
 	mov	es,ax		! segment of 0x010000
 	call	read_it
