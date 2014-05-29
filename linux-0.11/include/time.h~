@@ -43,9 +43,7 @@ char * asctime(const struct tm * tp);	//将tm结构转换成一个字符串，�
 char * ctime(const time_t * tp);	//将日历时间转换成字符串形式
 struct tm * gmtime(const time_t *tp);	//将日历时间转换成tm结构表示的UTC（Universal Time Code）时间
 struct tm *localtime(const time_t * tp);	//将日历时间转换成tm结构表示的指定时区的时间
-
-//将tm结构表示的时间利用格式字符串fmt转换成最大长度为smax的字符串，将结构存在s中
 size_t strftime(char * s, size_t smax, const char * fmt, const struct tm * tp);
-void tzset(void);	//初始化时间转换信息
+void tzset(void);
 
 #endif
