@@ -118,21 +118,30 @@ check_x87:
  *  sure everything is ok. This routine will be over-
  *  written by the page tables.
  */
-setup_idt:
-	lea ignore_int,%edx
-	movl $0x00080000,%eax
-	movw %dx,%ax		/* selector = 0x0008 = cs */
-	movw $0x8E00,%dx	/* interrupt gate - dpl=0, present */
 
-	lea _idt,%edi
+/*
+ * 中断描述符表中的项是由8字节组成。
+ * 这段代码首先在edx、eax中组合设置出8字节默认的中断描述符值，然后在idt表每一项中都放置该描述符。
+ * eax含有描述符低4字节，edx含有高4字节。
+ */
+setup_idt:
+	lea ignore_int,%edx	/*将ignore_int的有效地址（偏移值）存入edx寄存器*/
+	movl $0x00080000,%eax	/*将选择符0x0008存入eax的高16位中*/
+	movw %dx,%ax		/* selector = 0x0008 = cs */
+				/*偏移值的低16位存入eax的低16位中，此时eax含有门描述符低4字节的值*/
+	movw $0x8E00,%dx	/* interrupt gate - dpl=0, present */
+				/*此时edx含有门描述符表的地址*/
+
+	lea _idt,%edi		/*取源操作数地址的偏移量，并把它传送到目的操作数所在的单元*/
 	mov $256,%ecx
+
 rp_sidt:
-	movl %eax,(%edi)
-	movl %edx,4(%edi)
-	addl $8,%edi
+	movl %eax,(%edi)	/*将哑中断门描述符存入表中*/
+	movl %edx,4(%edi)	/*eax内容存放到edi+4所指内存位置处*/
+	addl $8,%edi		/*edi指向表中下一项*/
 	dec %ecx
 	jne rp_sidt
-	lidt idt_descr
+	lidt idt_descr		/*加载中断描述符表寄存器值*/
 	ret
 
 /*
@@ -154,7 +163,8 @@ setup_gdt:
  * using 4 of them to span 16 Mb of physical memory. People with
  * more than 16MB will have to expand this.
  */
-.org 0x1000
+
+.org 0x1000		/*从偏移0x1000处开始是第1个页表（偏移0开始处将存放页表目录）*/
 pg0:
 
 .org 0x2000
@@ -166,30 +176,41 @@ pg2:
 .org 0x4000
 pg3:
 
-.org 0x5000
+.org 0x5000		/*定义下面的内存数据块从偏移0x5000处开始*/
 /*
  * tmp_floppy_area is used by the floppy-driver when DMA cannot
  * reach to a buffer-block. It needs to be aligned, so that it isn't
  * on a 64kB border.
  */
-_tmp_floppy_area:
-	.fill 1024,1,0
 
+/*
+ * 当DMA（直接存储器访问）不能访问缓冲块时，tmp_floppy_area就可供软盘驱动程序使用。
+ * 其地址需要对其调整，这样就不会跨越64KB边界。
+ */
+_tmp_floppy_area:
+	.fill 1024,1,0		/*共保留1024项，每项1字节，填充数值0*/
+
+/*
+ * 这几个入栈操作为跳转到init/main.c中的main()函数作准备工作。
+ */
 after_page_tables:
 	pushl $0		# These are the parameters to main :-)
 	pushl $0
 	pushl $0
 	pushl $L6		# return address for main, if it decides to.
-	pushl $_main
+	pushl $_main		/*"_main"是编译程序对main的内部表示方法*/
 	jmp setup_paging
 L6:
 	jmp L6			# main should never return here, but
 				# just in case, we know what happens.
 
 /* This is the default interrupt "handler" :-) */
+/*
+ * 默认的中断处理程序
+ */
 int_msg:
 	.asciz "Unknown interrupt\n\r"
-.align 2
+.align 2		/*按4字节方式对齐内存地址*/
 ignore_int:
 	pushl %eax
 	pushl %ecx
@@ -197,12 +218,17 @@ ignore_int:
 	push %ds
 	push %es
 	push %fs
+
+	/*置段选择符，使ds、es、fs指向gdt表中的数据段*/
 	movl $0x10,%eax
 	mov %ax,%ds
 	mov %ax,%es
 	mov %ax,%fs
+
+	/*准备调用/kernel/printk.c中的printk()函数*/
 	pushl $int_msg
 	call _printk
+
 	popl %eax
 	pop %fs
 	pop %es
@@ -210,7 +236,8 @@ ignore_int:
 	popl %edx
 	popl %ecx
 	popl %eax
-	iret
+
+	iret		/*中断返回，把中断调用时压入栈的CPU标志寄存器(32位)值也弹出*/
 
 
 /*
@@ -239,43 +266,72 @@ ignore_int:
  */
 .align 2
 setup_paging:
+	/*首先对5页内存（1页目录+4页页表）清零*/
 	movl $1024*5,%ecx		/* 5 pages - pg_dir+4 page tables */
 	xorl %eax,%eax
 	xorl %edi,%edi			/* pg_dir is at 0x000 */
 	cld;rep;stosl
+
+	/*下面4句设置页目录表中的项，4个字节为1项
+	 *"$pg0+7"表示：0x1000+7=0x00001007，为页目录表中的第1项。
+	 * 则第1个页表所在的地址=0x00001007 & 0xfffff000 = 0x1000；
+	 * 第1个页表的属性标志=0x00001007 & 0x00000fff =0x07，表示该页存在、用户可读写
+	 */
 	movl $pg0+7,_pg_dir		/* set present bit/user r/w */
 	movl $pg1+7,_pg_dir+4		/*  --------- " " --------- */
 	movl $pg2+7,_pg_dir+8		/*  --------- " " --------- */
 	movl $pg3+7,_pg_dir+12		/*  --------- " " --------- */
-	movl $pg3+4092,%edi
-	movl $0xfff007,%eax		/*  16Mb - 4096 + 7 (r/w user,p) */
-	std
+	
+	/* 填写4个页表中所有项的内容，共有4(页表)*1024(项/页表)=4096项(0-0xfff)，可映射4096*4KB=16MB
+	 * 每项的内容：当前项所映射的物理内存地址+该页的标志(均为7)
+	 * 从最后一个页表的最后一项开始按倒序填写，一个页表的最后一项在页表中的位置是1023*4=4092。
+	 * 故最后一页的最后一项的位置就是$pg3+4092
+	 */
+	movl $pg3+4092,%edi	/*edi，最后一页的最后一项*/
+	movl $0xfff007,%eax	/*  16Mb - 4096 + 7 (r/w user,p) */
+				/*最后一项对应的物理内存页面的地址时0xfff000，加上属性标记7*/
+	std	/*方向位置位，edi值递减(4字节)*/
 1:	stosl			/* fill pages backwards - more efficient :-) */
-	subl $0x1000,%eax
-	jge 1b
+	subl $0x1000,%eax	/*每填好一项，物理地址减0x1000*/
+	jge 1b		/*如果小于0，则全填好了*/
+
+	/*设置页目录表基址寄存器CR3的值，指向页目录表*/
 	xorl %eax,%eax		/* pg_dir is at 0x0000 */
 	movl %eax,%cr3		/* cr3 - page directory start */
+
+	/*设置启动使用分页处理机制（CR0的31位PG，置位）*/
 	movl %cr0,%eax
 	orl $0x80000000,%eax
 	movl %eax,%cr0		/* set paging (PG) bit */
 	ret			/* this also flushes prefetch-queue */
+	/*改变分页处理标志后要求使用转移指令刷新预取指令队列*/
 
 .align 2
 .word 0
+
+/*前2字节时idt表的限长，后4字节时idt表在线性地址空间中的32位基地址*/
 idt_descr:
 	.word 256*8-1		# idt contains 256 entries
 	.long _idt
 .align 2
 .word 0
+
+/*前2字节是gdt表的限长，后4字节时gdt表的线性基地址*/
 gdt_descr:
 	.word 256*8-1		# so does gdt (not that that's any
 	.long _gdt		# magic number, but it works for me :^)
 
-	.align 3
+	.align 3	/*按8字节方式对齐内存地址边界*/
 _idt:	.fill 256,8,0		# idt is uninitialized
+			/*256项，每项8字节，以0填充*/
 
+/*
+ * 全局表。前四项分别是空项、代码段描述符、数据段描述符、系统调用段描述符。
+ * （0-null，1-cs，2-ds，3-syscal，4-TSS0，5-LDT0，6-TSS1，7-LDT1，8-TSS2 etc）
+ */
 _gdt:	.quad 0x0000000000000000	/* NULL descriptor */
 	.quad 0x00c09a0000000fff	/* 16Mb */
 	.quad 0x00c0920000000fff	/* 16Mb */
 	.quad 0x0000000000000000	/* TEMPORARY - don't use */
 	.fill 252,8,0			/* space for LDT's and TSS's etc */
+				/*预留252项空间，用于存放所创建任务的局部描述符(LDT)和对应的任务状态段(TSS)*/
