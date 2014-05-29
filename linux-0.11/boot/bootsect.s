@@ -112,6 +112,7 @@ load_setup:
 ok_load_setup:
 
 ! Get disk drive parameters, specifically nr of sectors/track
+! 获取磁盘参数
 
 	mov	dl,#0x00
 	mov	ax,#0x0800		! AH=8 is get drive parameters
