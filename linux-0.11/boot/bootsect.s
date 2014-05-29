@@ -161,9 +161,11 @@ ok_load_setup:
 ! on the number of sectors that the BIOS reports currently.
 
 	seg cs
-	mov	ax,root_dev
+	mov	ax,root_dev	! //取508、509字节处根设备号，并判断是否已经被定义
 	cmp	ax,#0
 	jne	root_defined
+
+	! //取上面保存的每磁道扇区数。如果sectors=15则说明是1.2MB的驱动器；若是sectors=18，则说明是1.44MB软驱。
 	seg cs
 	mov	bx,sectors
 	mov	ax,#0x0208		! /dev/ps0 - 1.2Mb
@@ -172,17 +174,17 @@ ok_load_setup:
 	mov	ax,#0x021c		! /dev/PS0 - 1.44Mb
 	cmp	bx,#18
 	je	root_defined
-undef_root:
+undef_root:				! //如果都不一样，则死机。
 	jmp undef_root
 root_defined:
 	seg cs
-	mov	root_dev,ax
+	mov	root_dev,ax		! //将检查过的设备号保存到root_dev中
 
 ! after that (everyting loaded), we jump to
 ! the setup-routine loaded directly after
 ! the bootblock:
 
-	jmpi	0,SETUPSEG
+	jmpi	0,SETUPSEG		! //Jump Intersegment，跳转到0x9020:0000处去执行。
 
 ! This routine loads the system at address 0x10000, making sure
 ! no 64kB boundaries are crossed. We try to load it as fast as
