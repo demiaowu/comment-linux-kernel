@@ -1,4 +1,6 @@
-!
+!//代码注释 (C) Roger Young, 2014-05-29, rogeryoung@outlook.com
+!//主要参考文献 Linux内核完全注释，内核版本0.11，赵炯 编著
+! 
 ! SYS_SIZE is the number of clicks (16 bytes) to be loaded.
 ! 0x3000 is 0x30000 bytes = 196kB, more than enough for current
 ! versions of linux
