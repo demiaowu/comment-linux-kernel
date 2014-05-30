@@ -232,11 +232,8 @@ int execvp(const char * file, char ** argv);
 int execl(const char * pathname, char * arg0, ...);
 int execlp(const char * file, char * arg0, ...);
 int execle(const char * pathname, char * arg0, ...);
-
-//volatile告知编译器该函数不会返回
 volatile void exit(int status);
 volatile void _exit(int status);
-
 int fcntl(int fildes, int cmd, ...);
 int fork(void);
 int getpid(void);
