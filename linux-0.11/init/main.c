@@ -54,6 +54,7 @@ extern void floppy_init(void);		//软驱初始化
 extern void mem_init(long start, long end);	//内存管理初始化
 extern long rd_init(long mem_start, int length);	//虚拟盘初始化
 extern long kernel_mktime(struct tm * tm);	//计算系统开机启动时间
+
 extern long startup_time;	//内核启动时间（秒）
 
 /*
@@ -71,13 +72,19 @@ extern long startup_time;	//内核启动时间（秒）
  * bios-listing reading. Urghh.
  */
 
+//该宏读取CMOS实时时钟信息，参见include/asm/io.h
+//0x70是写地址端口号，0x80|addr是要读取的CMOS内存地址，0x71是读数据端口号
 #define CMOS_READ(addr) ({ \
 outb_p(0x80|addr,0x70); \
 inb_p(0x71); \
 })
 
+// 定义宏，将BCD码转换成二进制数值。BCD码利用半个字节表示一个10进制数
+// (val)&15=(val)&(0b0001111)取BCD表示的10进制个位数
+// (val)>>4取BCD表示的10进制十位数
 #define BCD_TO_BIN(val) ((val)=((val)&15) + ((val)>>4)*10)
 
+//取CMOS实时钟信息作为开机时间，并保存到start_time中
 static void time_init(void)
 {
 	struct tm time;
@@ -89,7 +96,8 @@ static void time_init(void)
 		time.tm_mday = CMOS_READ(7);
 		time.tm_mon = CMOS_READ(8);
 		time.tm_year = CMOS_READ(9);
-	} while (time.tm_sec != CMOS_READ(0));
+	} while (time.tm_sec != CMOS_READ(0));	//将时间误差控制在1秒内
+	//转换成二进制数值
 	BCD_TO_BIN(time.tm_sec);
 	BCD_TO_BIN(time.tm_min);
 	BCD_TO_BIN(time.tm_hour);
@@ -97,15 +105,16 @@ static void time_init(void)
 	BCD_TO_BIN(time.tm_mon);
 	BCD_TO_BIN(time.tm_year);
 	time.tm_mon--;
-	startup_time = kernel_mktime(&time);
+	startup_time = kernel_mktime(&time);	//计算开机时间
 }
 
-static long memory_end = 0;
-static long buffer_memory_end = 0;
-static long main_memory_start = 0;
+static long memory_end = 0;		//机器具有的物理内存容量（字节数）
+static long buffer_memory_end = 0;	//高速缓冲区末端地址
+static long main_memory_start = 0;	//主内存开始的位置
 
-struct drive_info { char dummy[32]; } drive_info;
+struct drive_info { char dummy[32]; } drive_info;	//存放硬盘参数表
 
+//内核初始化主程序
 void main(void)		/* This really IS void, no error here. */
 {			/* The startup routine assumes (well, ...) this */
 /*
