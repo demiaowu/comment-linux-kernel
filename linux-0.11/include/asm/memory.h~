@@ -10,8 +10,7 @@
 #define memcpy(dest,src,n) ({ \
 void * _res = dest; \
 __asm__ ("cld;rep;movsb" \	//从ds:[esi]复制到es:[edi]，并且esi++，edi++
-	:\
-	:"D" ((long)(_res)),"S" ((long)(src)),"c" ((long) (n)) \
+	::"D" ((long)(_res)),"S" ((long)(src)),"c" ((long) (n)) \
 	:"di","si","cx"); \
 _res; \
 })
