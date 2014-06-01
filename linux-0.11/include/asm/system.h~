@@ -71,19 +71,24 @@ __asm__ ("movw %%dx,%%ax\n\t" \		//将偏移地址低字与选择符组合成描
 	*((gate_addr)+1) = (((base) & 0x0000ffff)<<16) | \
 		((limit) & 0x0ffff); }
 
-// 在全局表中设置任务状态段/局部表描述符
+// 在全局表中设置任务状态段/局部表描述符。状态段和局部表段的长度被设置成104字节
+// 参数：n，在全局表中描述符项n所对应的地址；add，状态段/局部表所在内存的基地址
+//	type，描述符中的标志类型字节
 #define _set_tssldt_desc(n,addr,type) \
-__asm__ ("movw $104,%1\n\t" \
-	"movw %%ax,%2\n\t" \
-	"rorl $16,%%eax\n\t" \
-	"movb %%al,%3\n\t" \
-	"movb $" type ",%4\n\t" \
-	"movb $0x00,%5\n\t" \
-	"movb %%ah,%6\n\t" \
-	"rorl $16,%%eax" \
+__asm__ ("movw $104,%1\n\t" \	//将TSS（或LDT）的长度放入描述符长度域（第0-1字节）
+	"movw %%ax,%2\n\t" \	//将基地址的低字放入描述符第2-3字节
+	"rorl $16,%%eax\n\t" \	//基地址高字循环移入ax中（低字则进入高字处）
+	"movb %%al,%3\n\t" \	//基地址高字中低字节一如描述符第4字节
+	"movb $" type ",%4\n\t" \	//标志类型字节移入描述符的第5字节
+	"movb $0x00,%5\n\t" \	//描述符的第6字节置0
+	"movb %%ah,%6\n\t" \	//基地址高字中高字节移入描述符第7字节
+	"rorl $16,%%eax" \	//右循环16比特，eax恢复原值
 	::"a" (addr), "m" (*(n)), "m" (*(n+2)), "m" (*(n+4)), \
 	 "m" (*(n+5)), "m" (*(n+6)), "m" (*(n+7)) \
 	)
 
+//在全局表中设置任务状态段描述符。任务状态段描述符的类型为0x89
 #define set_tss_desc(n,addr) _set_tssldt_desc(((char *) (n)),addr,"0x89")
+
+//在全局表中设置局部表描述符。局部表描述符的类型是0x82
 #define set_ldt_desc(n,addr) _set_tssldt_desc(((char *) (n)),addr,"0x82")
