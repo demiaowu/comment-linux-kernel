@@ -52,7 +52,6 @@ __asm__ ("movl %0,%%fs:%1"::"r" (val),"m" (*addr));
  * [ nothing wrong here, Linus ]
  */
 
-// 取fs段寄存器值
 extern inline unsigned long get_fs() 
 {
 	unsigned short _v;
@@ -60,7 +59,6 @@ extern inline unsigned long get_fs()
 	return _v;
 }
 
-// 取ds段寄存器值
 extern inline unsigned long get_ds() 
 {
 	unsigned short _v;
@@ -68,7 +66,6 @@ extern inline unsigned long get_ds()
 	return _v;
 }
 
-// 设置fs段寄存器值
 extern inline void set_fs(unsigned long val)
 {
 	__asm__("mov %0,%%fs"::"a" ((unsigned short) val));
