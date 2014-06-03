@@ -20,26 +20,33 @@
  * Also corrected some "invalidate()"s - I wasn't doing enough of them.
  */
 
-#include <signal.h>
+// 进行内存分页的管理，实现对主内存区内存页面的动态分配和回收操作
+// 对于内核代码和数据所占的物理内存以外的区域，使用一个字节数字mem_map[]来表示物理内存页面的状态
+// 每一字节描述一个物理内存页的占用状态，其中的值表示被占用的次数，0表示对应内存空闲
+
+#include <signal.h>	//信号头文件，定义信号符号常量、信号结构以及信号操作函数原型
 
 #include <asm/system.h>
 
-#include <linux/sched.h>
-#include <linux/head.h>
+#include <linux/sched.h>	//定义任务结构task_struct，初始任务0的数据
+#include <linux/head.h>		//定义段描述符的简单结构以及几个选择符常量
 #include <linux/kernel.h>
 
-volatile void do_exit(long code);
+volatile void do_exit(long code);	//进程退出函数
 
-static inline volatile void oom(void)
+static inline volatile void oom(void)	//oom，out of memory，显示内存已用完，并退出
 {
 	printk("out of memory\n\r");
 	do_exit(SIGSEGV);
 }
 
-#define invalidate() \
-__asm__("movl %%eax,%%cr3"::"a" (0))
+//刷新页变换高速缓冲宏
+//为了提高地址转换效率，CPU将最近使用的页表数据存放在芯片高速缓冲中，在修改页表后，需要刷新该缓冲
+//这里使用重新加载页目录基址寄存器cr3的方法来进行刷新
+#define invalidate() __asm__("movl %%eax,%%cr3"::"a" (0))
 
 /* these are not to be changed without changing head.s etc */
+// 以下定义可参见head.s
 #define LOW_MEM 0x100000
 #define PAGING_MEMORY (15*1024*1024)
 #define PAGING_PAGES (PAGING_MEMORY>>12)
