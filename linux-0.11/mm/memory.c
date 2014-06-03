@@ -47,11 +47,11 @@ static inline volatile void oom(void)	//oom，out of memory，显示内存已用
 
 /* these are not to be changed without changing head.s etc */
 // 以下定义可参见head.s
-#define LOW_MEM 0x100000
+#define LOW_MEM 0x100000	//内存低端
 #define PAGING_MEMORY (15*1024*1024)
 #define PAGING_PAGES (PAGING_MEMORY>>12)
 #define MAP_NR(addr) (((addr)-LOW_MEM)>>12)
-#define USED 100
+#define USED 100	//页面被占用标志
 
 #define CODE_SPACE(addr) ((((addr)+4095)&~4095) < \
 current->start_code + current->end_code)
