@@ -39,9 +39,8 @@ _page_fault:
 
 	call _do_no_page	// 调用缺页处理函数(mm/memory.c)
 	jmp 2f
-
 1:	call _do_wp_page	// 调用写保护处理函数(mm/memory.c)
-2:	addl $8,%esp	// 丢弃入栈的两个参数，弹出栈中的寄存器并退出中断
+2:	addl $8,%esp
 	pop %fs
 	pop %es
 	pop %ds
