@@ -421,6 +421,9 @@ static int share_page(unsigned long address)
 }
 
 // 执行缺页处理
+// 该函数首先尝试与已加载的相同文件进行页面共享，或者只是由于进程动态申请内存页面
+// 而只需要映射一页物理内存页即可。
+// 若共享不成功，则从相应文件中读入所缺数据页面到指定线性地址
 void do_no_page(unsigned long error_code,unsigned long address)
 {
 	int nr[4];
@@ -428,17 +431,26 @@ void do_no_page(unsigned long error_code,unsigned long address)
 	unsigned long page;
 	int block,i;
 
-	address &= 0xfffff000;
+	address &= 0xfffff000;	// 取线性地址addree处的页面地址
+	//该地址在进程空间中相对于进程基址的偏移长度值，即对应的逻辑地址
 	tmp = address - current->start_code;
+	
+	/* 若当前进程的executable节点指针空，则指定地址超过(数据+代码)长度
+	 * 则申请一页物理内存，并映射到指定线性地址
+	 */
 	if (!current->executable || tmp >= current->end_data) {
 		get_empty_page(address);
 		return;
 	}
+
+	// 否则说明缺页在进程执行影像文件范围内，于是尝试共享页面，若成功，则退出
+	// 若不成功，则申请一页物理内存页面page，然后从设备上读取执行文件的相应页面，并映射
 	if (share_page(tmp))
 		return;
 	if (!(page = get_free_page()))
 		oom();
-/* remember that 1 block is used for header */
+
+	/* remember that 1 block is used for header */
 	block = 1 + tmp/BLOCK_SIZE;
 	for (i=0 ; i<4 ; block++,i++)
 		nr[i] = bmap(current->executable,block);
@@ -449,6 +461,9 @@ void do_no_page(unsigned long error_code,unsigned long address)
 		tmp--;
 		*(char *)tmp = 0;
 	}
+
+	// 最后将引起缺页异常的一页物理页面映射到线性地址address处
+	// 若成功就返回，否则释放内存页，出错
 	if (put_page(page,address))
 		return;
 	free_page(page);

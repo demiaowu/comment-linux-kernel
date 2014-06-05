@@ -421,6 +421,9 @@ static int share_page(unsigned long address)
 }
 
 // 执行缺页处理
+// 该函数首先尝试与已加载的相同文件进行页面共享，或者只是由于进程动态申请内存页面
+// 而只需要映射一页物理内存页即可。
+// 若共享不成功，则从相应文件中读入所缺数据页面到指定线性地址
 void do_no_page(unsigned long error_code,unsigned long address)
 {
 	int nr[4];
@@ -428,7 +431,7 @@ void do_no_page(unsigned long error_code,unsigned long address)
 	unsigned long page;
 	int block,i;
 
-	address &= 0xfffff000;
+	address &= 0xfffff000;	// 取线性地址addree处的页面地址
 	tmp = address - current->start_code;
 	if (!current->executable || tmp >= current->end_data) {
 		get_empty_page(address);
@@ -470,6 +473,7 @@ void mem_init(long start_mem, long end_mem)
 		mem_map[i++]=0;
 }
 
+//计算内存空闲页面数并显示
 void calc_mem(void)
 {
 	int i,j,k,free=0;
