@@ -25,10 +25,6 @@ typedef char *va_list;
 #endif
 
 //va_end用于被调用函数完成一次正常返回
-/*从一个使用过va_start()的函数中退出之前，必须调用一次va_end()。这是因为va_start可能以某种方式修改了堆栈，这种修改可能导致返回无法完成，va_end()能将有关的修改复原。 ——《C++程序设计语言》 第3版、特别版， p139
-在大多数C实现上，调用va_end与否并无区别。但是，某些版本的va_start宏为了方便对va_list的遍历，就给参数列表动态分配内存。
-这样一种C实现很可能利用va_end宏来释放此前动态分配的内存；如果忘记调用宏va_end，最后得到的程序可能在某些机型上没有问题，而在另一些机型上则发生“内存泄露”。  ——《C陷阱与缺陷》， p161
-*/
 void va_end (va_list);		/* Defined in gnulib */
 #define va_end(AP)
 
